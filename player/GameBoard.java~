@@ -1,0 +1,296 @@
+/* GameBoard.java */
+
+package player;
+import list.*
+
+public class GameBoard {
+    DList whiteChips;
+    DList blackChips;
+    Chip[][] chips;
+
+    public GameBoard() {
+        whiteChips = new DList();
+        blackChips = new DList();
+        chips = new Chip[8][8];
+	chips[0][0].isAvailable = false; 
+	chips[0][7].isAvailable = false; 
+	chips[7][0].isAvailable = false; 
+	chips[7][7].isAvailable = false; 
+    }
+
+    /**
+     *  addChip() will update the internal game board if a valid ADD move is 
+     *  made by the MachinePlayer or the opponent. 
+     *  
+     *  @param xx1, yy1 (position where chip will be placed)
+     *  @param color (color of Player making ADD move) 
+     */
+
+    public void addChip(int xx1, int yy1, int color) {
+	chips[xx1][yy1].isAvailable = false; 
+	chips[xx1][yy1].whatColor = color; 
+	if (color == 0) {
+	    this.blackChips.insertFront(chips[xx1][yy1]); 
+	} else if (color == 1) {
+	    this.whiteChips.insertFront(chips[xx1][yy1]); 
+	}        
+    }
+
+    /**
+     *  moveChip() will update the internal game board if a valid STEP move is
+     *  made by the MachinePlayer or the opponent. 
+     *
+     *  @param xx1, yy1 (postion where chip will be placed) 
+     *  @param xx2, yy2 (old position of chip) 
+     *  @param color (color of Player making STEP move) 
+     */
+
+    public void moveChip(int xx1, int yy1, int xx2, int yy2, int color) {
+	internalGB[xx2][yy2].isAvailable = true;
+	internalGB[xx2][yy2].whatColor = -1;  
+	internalGB[xx1][yy1].isAvailable = false; 
+	internalGB[xx1][yy1].whatColor = color; 
+        if (color == 0) {
+	    DListNode current = blackChips.head.next;
+	    while (current != blackChips.head) {
+		if (current.item.xcorr == xx2 && current.item.ycorr == yy2) {
+		    current.item.xcorr = xx1; 
+		    current.item.ycorr = yy1; 
+		    break; 
+		}
+		current = current.next; 
+	    }
+	} else if (color == 1) {
+	    DListNode current = whiteChips.head.next; 
+	    while (current != whiteChips.head) {
+		if (current.item.xcorr == xx2 && current.item.ycorr == yy2) {
+		    current.item.xcorr = xx1; 
+		    current.item.ycorr = yy1; 
+		    break;
+		}
+		current = current.next; 
+	    }
+	}
+    }
+
+ /**
+   * VALID() returns a boolean given a specific "move".
+   *
+   * A move is NOT valid when: it is in a corner, in the goal area of the opponent's goal,
+   * in a square that is already occupied, or if it is connected to more than two chips in a connected group.
+   *
+   * @param move represents a Move object that is being checked for validity.
+   * @return a boolean -- either 'true' or 'false'.
+   **/
+ 
+  public static boolean VALID(Move move) {
+    int x = move.x1;
+    int y = move.y1;
+    int color = chips[x][y].whatColor;
+    boolean availability = chips[x][y].isAvailable;
+    // STEP moves are only valid when listlength>10; ADD moves are only valid when listlength<10
+    if (move.moveKind == 2) {
+        if (color == 0 && blackChips.length() < 10) return false;
+        if (color == 1 && whiteChips.length() < 10) return false;
+        if (x == move.x2 && y == move.y2) return false;
+    } else if (move.moveKind == 1) {
+        if (color == 0 && blackChips.length() >= 10) return false;
+        if (color == 1 && whiteChips.length() >= 10) return false;
+    }
+
+    if (availability == false) {
+        // in a square that is already occupied
+        return false;
+    }
+    if (color == 0) {
+        // if color of current chip is black
+        if (x == 0 || x == 7) {
+            // if square in white's (opponent's) goal area
+            return false;
+        }
+    }
+    if (color == 1) {
+        // if color of current chip is white
+        if (y == 0 || y == 7) {
+            // if square in black's (opponent's) goal area
+            return false;
+        }
+    }
+
+    /*I feel like this one only loops along the diagonal(upper left ==> lower right)
+    for (int k = -1; k <= 1; k++) {
+        // check all spaces adjacent to current chip
+        if (chips[x+k][y+k].isAvailable == false  && chips[x+k][y+k].whatColor == color) {
+            // if you find an existing chip of the same color
+            Chip chipFound = chips[x+k][y+k];
+            for (int k = -1; k <= 1; k++) {
+                // check its adjacent spaces
+                if (chips[x+k][y+k].isAvailable == false  && chips[x+k][y+k].whatColor == color && chips[x+k][y+k] != chipFound)
+                    // if you find an existing chip that is of the same color AND is not the chip you found earlier
+                {
+                    return false;
+                }
+            }
+        }
+    }
+    */
+
+    for (int i = -1; i <= 1; i++) {
+        for (int j = -1; j <= 1; j++) {
+            if (chips[x+i][y+j].isAvailable == false && chips[x+i][y+j].whatColor == color && chips[x+i][y+j] != chips[x][y]) {
+                Chip chipFound = chips[x+i][y+j];
+                for (int m = -1; m <= 1; m++) {
+                    for (int n = -1; n <= 1; n++) {
+                        if (chips[x+m][y+n].isAvailable == false && chips[x+m][y+n].whatColor == color && chips[x+m][y+n] != chipFound && chips[x+m][y+n] != chips[x][y]) return false;
+                    }
+                }
+            }
+        }
+    }
+    
+    return true;
+  }
+
+    /** 
+     * public DList allValidMoves() generates a list of all the valid moves, given a specific color. 
+     *
+     * For a given color, there're two possible cases:
+     * The given color has exhausted its all ten chips. In this case, the valid moves for this color are
+     *              all step moves.
+     * The given color only occupied less than ten chips. In this case, the valid moves for this color are
+     *              all add moves.
+     *
+     * @param color represent the player. 0(Black) or 1(White). White has the first move.
+     * @return a list of all valid moves. Each element in the list is a move, either addMove or stepMove.
+     **/
+
+    public DList allValidMoves(int color) {
+        DList validLst = new DList();
+        // valid moves for WHITE
+        if (color == 1) {
+            // white hasnt exhausted all ten chips. Only ADD moves valid.
+            if (myBoard.whiteChips.length() < 10) {
+                for (int i = 0; i <= 7; i++) {
+                    for (int j = 1; j <= 6; j++) {
+                        if (myBoard.chips[i][j].isAvailable) {
+                            Move addMv = new Move(i, j);
+                            //VALID(MOVE) determine whether or not a move is valid. probably work w/ first moudle
+                            if (VALID(addMv)) {
+                                validLst.insertBack(addMv);
+                            }
+                        }
+                    }
+                }
+            }
+            // when white has exhausted all ten chips, Only STEP moves valid.
+            else {
+                DListNode curr = myBoard.whiteChips.front();
+                while (curr.isValidNode()) {
+                    int x = curr.item().xcorr;
+                    int y = curr.item().ycorr;
+                    for (int i = 0; i <= 7; i++) {
+                        for (int j = 1; j <= 6; j++) {
+                            if (myBoard.chips[i][j].isAvailable) {
+                                Move stepMv = new Move(i, j, x, y);
+                                if (VALID(stepMv)) {
+                                    validLst.insertBack(stepMv);
+                                }
+                            }
+                        }
+                    }
+                    curr = curr.next();
+                }
+            }
+        }
+        // valid moves for BLACK
+        else {
+            // black hasnt exhausted all ten chips. only ADD moves valid.
+            if (myBoard.blackChips.length() < 10) {
+                for (int i = 1; i <= 6; i++) {
+                    for (int j = 0; j <= 7; j++) {
+                        if (myBoard.chips[i][j].isAvailable) {
+                            Move addMv = new Move(i, j);
+                            if (VALID(addMv)) {
+                                validLst.insertBack(addMv);
+                            }
+                        }
+                    }
+                }
+            }
+            // black has exhausted all ten chips. only STEP moves valid.
+            else {
+                DListNode curr = myBoard.blackChips.front();
+                while (curr.isValidNode()) {
+                    int x = curr.item().xcorr;
+                    int y = curr.item().ycorr;
+                    for (int i = 1; i <=6; i++) {
+                        for (int j = 0; j <= 7; j++) {
+                            if (myBoard.chips[i][j].isAvailable) {
+                                Move stepMv = new Move(i, j, x, y);
+                                if (VALID(stepMv)) {
+                                    validLst.insertBack(stepMv);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return validLst;
+    }
+
+    /**
+     *  findConnections() generates a list of all chips of the same color 
+     *  connected to a given chip. 
+     *
+     *  Connections are along straight lines (orthogonally or diagonally). 
+     *
+     *  @param chip1 
+     *
+     *  @retrn connections (list of all chips that make a connections with 
+     *  (chip1) 
+     */
+
+    public DList findConnections(Chip chip1) {
+	if (chip1.whatColor == 0) {
+	    return compare(chip1, this.blackChips); 
+	} else {
+	    return compare(chip1, this.whiteChips); 
+	} 
+
+    }
+
+    private DList compare(Chip chip1, DList chipLst) {
+	DList connections = new DList(); 
+	DListNode current = chipLst.head.next; 
+	while (current != chipLst.head) {
+	    if (current.item.xcorr == chip1.xcorr && current.item.ycorr = chip1.ycorr) {
+		current = current.next; 
+	    } else if (current.item.xcorr == chip1.xcorr) {
+		Chip newChip = new Chip(current.item.xcorr, current.item.ycorr);
+		newChip.whatColor = current.item.whatColor; 
+		connections.insertFront(newChip); 
+		current = current.next; 
+	    } else if (current.item.ycorr == chip1.ycorr) {
+		Chip newChip = new Chip(current.item.xcorr, current.item.ycorr);
+		newChip.whatColor = current.item.whatColor; 
+		connections.insertFront(newChip); 
+		current = current.next; 
+	    } else if (((current.item.ycorr - chip1.ycorr)/(current.item.xcorr - chip1.xcorr)) == 1) {
+		Chip newChip = new Chip(current.item.xcorr, current.item.ycorr);
+		newChip.whatColor = current.item.whatColor; 
+		connections.insertFront(newChip); 
+		current = current.next; 
+	    } else if (((current.item.ycorr - chip1.ycorr)/(current.item.xcorr - chip1.xcorr)) == -1) {
+		Chip newChip = new Chip(current.item.xcorr, current.item.ycorr);
+		newChip.whatColor = current.item.whatColor; 
+		connections.insertFront(newChip); 
+		current = current.next; 
+	    } else {
+		current = current.next; 
+	    }
+	}
+	return connections; 
+    }
+
+}

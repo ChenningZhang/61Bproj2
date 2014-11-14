@@ -1,0 +1,22 @@
+/* Chip.java */
+
+package player;
+
+public class Chip {
+
+    protected int xcorr;
+    protected int ycorr;
+
+    protected Chip(int x, int y) {
+        xcorr = x;
+        ycorr = y;
+    }
+
+    protected int getX() {
+        return xcorr;
+    }
+
+    protected int getY() {
+        return ycorr;
+    }
+}

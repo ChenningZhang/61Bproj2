@@ -1,0 +1,17 @@
+/* Chip.java */
+
+package player;
+
+public class Chip {
+
+    protected int xcorr;
+    protected int ycorr;
+    protected boolean isAvailable;
+
+    protected Chip(int x, int y) {
+        xcorr = x;
+        ycorr = y;
+        isAvailable = true;
+    }
+
+}

@@ -1,0 +1,24 @@
+public class Testings {
+
+    public static void TestValidMove() {
+        MachinePlayer myPlayer = new MachinePlayer(0);
+        Move m1 = new Move (0,0);
+        Move m2 = new Move (7,0);
+        Move m3 = new Move (0,7);
+        Move m4 = new Move (7,7);
+        if (myPlayer.myBoard.VALID(m1) || myPlayer.myBoard.VALID(m2) || myPlayer.myBoard.VALID(m3) || myPlayer.myBoard.VALID(m4)) {
+            System.out.println("corner shouldnt be valid!!");
+        }
+        Move m5 = new Move (1,0);
+        //(1,0) is now black;
+        myPlayer.forceMove(m5);
+        if (myPlayer.myBoard.VALID(m5)) {
+            System.out.println("trying to move to a place that was occupied!!");
+        }
+    }
+
+    public static void main() {
+        TestValidMove();
+    }
+
+}

@@ -1,0 +1,29 @@
+/* Chip.java */
+
+package player;
+
+public class Chip {
+
+    protected int xcorr;
+    protected int ycorr;
+    protected boolean isAvailable;
+    protected int whatColor;
+
+    protected Chip(int x, int y) {
+        xcorr = x;
+        ycorr = y;
+        isAvailable = true;
+        whatColor = -1;
+    }
+
+    public String toString() {
+	String s;
+	if (isAvailable) {
+	    s = "[" + " "+ xcorr + " " + ycorr + " T " + whatColor + " ]";
+	} else {
+	    s = "[" + " "+ xcorr + " " + ycorr + " FALSE " + whatColor + " ]";
+	}
+	return s;
+    }
+
+}

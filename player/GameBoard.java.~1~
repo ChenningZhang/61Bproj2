@@ -1,0 +1,14 @@
+/* GameBoard.java */
+
+package player;
+
+public class GameBoard {
+    DList whiteMoves;
+    DList blackMoves;
+Chip[][] chips = new Chip[8][8];
+
+    public GameBoard() {
+        whiteMoves = new DList();
+        blackMoves = new DList();
+    }
+}

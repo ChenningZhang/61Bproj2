@@ -1,0 +1,14 @@
+/* Best.java */
+ 
+package player;
+ 
+public class Best {
+ 
+    protected Move move;
+    protected int score;
+ 
+    public Best() {
+        move = null;
+        score = 0;
+    }
+}

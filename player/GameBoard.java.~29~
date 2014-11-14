@@ -1,0 +1,924 @@
+/* GameBoard.java */
+
+package player;
+import list.*;
+
+public class GameBoard {
+    public DList whiteChips;
+    public DList blackChips;
+    Chip[][] chips;
+
+    public GameBoard() {
+        whiteChips = new DList();
+        blackChips = new DList();
+        chips = new Chip[8][8];
+	for (int i = 0; i < 8; i++) {
+	    for (int j = 0; j < 8; j++) {
+		chips[i][j] = new Chip(i, j);
+	    }
+	}
+	chips[0][0].isAvailable = false; 
+	chips[0][7].isAvailable = false; 
+	chips[7][0].isAvailable = false; 
+	chips[7][7].isAvailable = false; 
+    }
+
+    /**
+     *  addChip() will update the internal game board if a valid ADD move is 
+     *  made by the MachinePlayer or the opponent. 
+     *  
+     *  @param xx1, yy1 (position where chip will be placed)
+     *  @param color (color of Player making ADD move) 
+     */
+
+    public Chip getChip(int x, int y) {
+        return chips[x][y];
+    }
+
+    public void addChip(int xx1, int yy1, int color) {
+	chips[xx1][yy1].isAvailable = false; 
+	chips[xx1][yy1].whatColor = color; 
+	if (color == 0) {
+	    this.blackChips.insertFront(chips[xx1][yy1]); 
+	} else if (color == 1) { 
+	    this.whiteChips.insertFront(chips[xx1][yy1]); 
+	}        
+    }
+
+    protected void UndoMove(Move m) {
+        if (m.moveKind == 1) {
+            int x = m.x1;
+            int y = m.y1;
+            DListNode curr;
+            if (chips[x][y].whatColor == 0) {
+                curr = (DListNode)blackChips.front();
+            } else {
+                curr = (DListNode)whiteChips.front();
+            }
+            try {
+                while (curr.isValidNode()) {
+                    Chip currChip  = (Chip)curr.item();
+                    if (currChip.xcorr == x && currChip.ycorr == y) {
+                        curr.remove();
+                    } else {
+                        curr = (DListNode)curr.next();
+                    }
+                }
+            } catch (InvalidNodeException e) { }
+            chips[x][y].isAvailable = true;
+            chips[x][y].whatColor = -1;
+        } else if (m.moveKind == 2) {
+            int x = m.x1;
+            int y = m.y1;
+            int xx = m.x2;
+            int yy = m.y2;
+            int color = chips[x][y].whatColor;
+            this.moveChip(xx,yy,x,y,color);
+        }
+    }
+
+    /**
+     *  moveChip() will update the internal game board if a valid STEP move is
+     *  made by the MachinePlayer or the opponent. 
+     *
+     *  @param xx1, yy1 (postion where chip will be placed) 
+     *  @param xx2, yy2 (old position of chip) 
+     *  @param color (color of Player making STEP move) 
+     */
+
+    public void moveChip(int xx1, int yy1, int xx2, int yy2, int color) {
+	chips[xx2][yy2].isAvailable = true;
+	chips[xx2][yy2].whatColor = -1;  
+	chips[xx1][yy1].isAvailable = false; 
+	chips[xx1][yy1].whatColor = color; 
+        if (color == 0) {
+	    try {
+		DListNode current = (DListNode)blackChips.front();
+		while (current.isValidNode()) {
+		    if (((Chip)current.item()).xcorr == xx2 && ((Chip)current.item()).ycorr == yy2) {
+			((Chip)current.item()).xcorr = xx1; 
+			((Chip)current.item()).ycorr = yy1; 
+			break; 
+		    }
+		    current = (DListNode)current.next(); 
+		}
+	    } catch (InvalidNodeException e) { }
+	} else if (color == 1) {
+	    try {
+		DListNode current = (DListNode)whiteChips.front(); 
+		while (current.isValidNode()) {
+		    if (((Chip)current.item()).xcorr == xx2 && ((Chip)current.item()).ycorr == yy2) {
+			((Chip)current.item()).xcorr = xx1; 
+			((Chip)current.item()).ycorr = yy1; 
+			break;
+		    }
+		    current = (DListNode)current.next(); 
+		}
+	    } catch (InvalidNodeException e) { }
+	}
+    }
+
+    /**
+     * VALID() returns a boolean given a specific "move".
+     *
+     * A move is NOT valid when: it is in a corner, in the goal area of the opponent's goal,
+     * in a square that is already occupied, or if it is connected to more than two chips in a connected group.
+     *
+     * @param move represents a Move object that is being checked for validity.
+     * @return a boolean -- either 'true' or 'false'.
+     **/
+ 
+    public boolean VALID(Move move, int playerColor) {
+        int x = move.x1;
+        int y = move.y1;
+        int chipColor = chips[x][y].whatColor;
+        boolean availability = chips[x][y].isAvailable;
+        // STEP moves are only valid when listlength>10; ADD moves are only valid when listlength<10
+        if (move.moveKind == 2) {
+            if (x == move.x2 && y == move.y2) return false;
+        } else if (move.moveKind == 1) {
+
+        // WHITE should have the first move
+        if (playerColor == 0 && whiteChips.length() == 0) return false;
+
+        if (availability == false) {
+            // in a square that is already occupied
+            return false;
+        }
+        if (playerColor == 0) {
+            // if color of the player is black
+            if (x == 0 || x == 7) {
+                // if square in white's (opponent's) goal area
+                return false;
+            }
+        }
+        if (playerColor == 1) {
+            // if color of the player is white
+            if (y == 0 || y == 7) {
+                // if square in black's (opponent's) goal area
+                return false;
+            }
+        }
+        // neighbors, neighbors of neighbors cannot be more than 2
+        if (this.adjacent(chips[x][y], playerColor).length() >= 2) {
+            return false;
+        } else if (this.adjacent(chips[x][y], playerColor).length() != 0) {
+            DListNode curr = (DListNode)(this.adjacent(chips[x][y], playerColor).front());
+            try {
+                if (this.adjacent((Chip)curr.item(), playerColor).length() >= 1) return false;
+            } catch (InvalidNodeException e) { }
+        }
+        }
+        return true;
+    }
+
+    public DList adjacent(Chip c, int playerColor) {
+	int x = c.xcorr;
+	int y = c.ycorr;
+	DList adjacentLst = new DList();
+        if (x != 0 && x != 7 && y != 0 && y != 7) {
+            for (int i = x - 1; i <= x + 1; i++) {
+                for (int j = y - 1; j <= y + 1; j++) {
+                    if (chips[i][j].whatColor == playerColor && !(i == x && j == y)) {
+                        adjacentLst.insertBack(chips[i][j]);
+                    }
+                }
+            }
+        } else if (playerColor == 0 && y == 0) {
+            for (int i = x-1; i <= x+1; i++) {
+                for (int j = y; j <= y+1; j++) {
+                    if (chips[i][j].whatColor == playerColor && !(i == x && j == y)) {
+                        adjacentLst.insertBack(chips[i][j]);
+                    }
+                }
+            }
+        } else if (playerColor == 0 && y == 7) {
+            for (int i = x-1; i <= x+1; i++) {
+                for (int j = y-1; j <= y; j++) {
+                    if (chips[i][j].whatColor == playerColor && !(i == x && j == y)) {
+                        adjacentLst.insertBack(chips[i][j]);
+                    }
+                }
+            }
+        } else if (playerColor == 1 && x == 0) {
+            for (int i = x; i <= x+1; i++) {
+                for (int j = y-1; j <= y+1; j++) {
+                    if (chips[i][j].whatColor == playerColor && !(i == x && j == y)) {
+                        adjacentLst.insertBack(chips[i][j]);
+                    }
+                }
+            }
+        } else if (playerColor == 1 && x == 7) {
+            for (int i = x-1; i <= x; i++) {
+                for (int j = y-1; j <= y+1; j++) {
+                    if (chips[i][j].whatColor == playerColor && !(i == x && j == y)) {
+                        adjacentLst.insertBack(chips[i][j]);
+                    }
+                }
+            }
+        }
+        return adjacentLst;
+    }
+
+    /** 
+     * public DList allValidMoves() generates a list of all the valid moves, given a specific color. 
+     *
+     * For a given color, there're two possible cases:
+     * The given color has exhausted its all ten chips. In this case, the valid moves for this color are
+     *              all step moves.
+     * The given color only occupied less than ten chips. In this case, the valid moves for this color are
+     *              all add moves.
+     *
+     * @param color represent the player. 0(Black) or 1(White). White has the first move.
+     * @return a list of all valid moves. Each element in the list is a move, either addMove or stepMove.
+     **/
+
+    public DList allValidMoves(int color) {
+        DList validLst = new DList();
+        // valid moves for WHITE
+        if (color == 1) {
+            // white hasnt exhausted all ten chips. Only ADD moves valid.
+            if (whiteChips.length() < 10) {
+                for (int i = 0; i <= 7; i++) {
+                    for (int j = 1; j <= 6; j++) {
+                        if (chips[i][j].isAvailable) {
+                            Move addMv = new Move(i, j);
+                            //VALID(MOVE) determine whether or not a move is valid. probably work w/ first moudle
+                            if (this.VALID(addMv, 1)) {
+                                validLst.insertBack(addMv);
+                            }
+                        }
+                    }
+                }
+            }
+            // when white has exhausted all ten chips, Only STEP moves valid.
+            else {
+		try {
+                    DListNode curr = (DListNode)whiteChips.front();
+                    while (curr.isValidNode()) {
+                        int x = ((Chip)curr.item()).xcorr;
+                        int y = ((Chip)curr.item()).ycorr;
+                        for (int i = 0; i <= 7; i++) {
+                            for (int j = 1; j <= 6; j++) {
+                                if (chips[i][j].isAvailable) {
+                                    Move stepMv = new Move(i, j, x, y);
+                                    if (this.VALID(stepMv, 1)) {
+                                        validLst.insertBack(stepMv);
+                                    }
+                                }
+                            }
+                        }
+                        curr = (DListNode)curr.next();
+                    }
+		} catch (InvalidNodeException e) { }
+            }
+        }
+        // valid moves for BLACK
+        else if (color == 0) {
+            // black hasnt exhausted all ten chips. only ADD moves valid.
+            if (blackChips.length() < 10) {
+                for (int i = 1; i <= 6; i++) {
+                    for (int j = 0; j <= 7; j++) {
+                        if (chips[i][j].isAvailable) {
+                            Move addMv = new Move(i, j);
+                            if (this.VALID(addMv, 0)) {
+                                validLst.insertBack(addMv);
+                            }
+                        }
+                    }
+                }
+            }
+            // black has exhausted all ten chips. only STEP moves valid.
+            else {
+		try {
+		    DListNode curr = (DListNode)blackChips.front();
+		    while (curr.isValidNode()) {
+			int x = ((Chip)curr.item()).xcorr;
+			int y = ((Chip)curr.item()).ycorr;
+			for (int i = 1; i <=6; i++) {
+			    for (int j = 0; j <= 7; j++) {
+				if (chips[i][j].isAvailable) {
+				    Move stepMv = new Move(i, j, x, y);
+				    if (this.VALID(stepMv, 0)) {
+					validLst.insertBack(stepMv);
+				    }
+				}
+			    }
+			}
+		    }
+                }  catch (InvalidNodeException e) { }
+            }
+        }
+        return validLst;
+    }
+
+    /**
+     *  findConnections() generates a list of all chips of the same color 
+     *  connected to a given chip. 
+     *
+     *  Connections are along straight lines (orthogonally or diagonally). 
+     *
+     *  @param chip1 
+     *
+     *  @retrn connections (list of all chips that make a connections with 
+     *  (chip1) 
+     */
+
+    
+    public DList findConnections(Chip chip1) {
+	if (chip1.whatColor == 0) {
+	    return compare(chip1, this.blackChips); 
+	} else if (chip1.whatColor == 1){
+	    return compare(chip1, this.whiteChips); 
+	} else return null;
+    }
+
+    private DList compare(Chip chip1, DList chipLst) {
+	DList connections = new DList(); 
+	DListNode current = (DListNode)chipLst.front(); 
+	while (current.isValidNode()) {
+	    try {
+                if (((Chip)current.item()).xcorr == chip1.xcorr && ((Chip)current.item()).ycorr == chip1.ycorr) {
+                    current = (DListNode)current.next(); 
+                } else if (((Chip)current.item()).xcorr == chip1.xcorr) {
+                    Chip newChip = new Chip(((Chip)current.item()).xcorr, ((Chip)current.item()).ycorr);
+                    newChip.whatColor = ((Chip)current.item()).whatColor; 
+                    newChip.isAvailable = false;
+                    connections.insertFront(newChip); 
+                    current = (DListNode)current.next(); 
+                } else if (((Chip)current.item()).ycorr == chip1.ycorr) {
+                    Chip newChip = new Chip(((Chip)current.item()).xcorr, ((Chip)current.item()).ycorr);
+                    newChip.whatColor = ((Chip)current.item()).whatColor; 
+                    newChip.isAvailable = false;
+                    connections.insertFront(newChip); 
+                    current = (DListNode)current.next(); 
+                } else if ((((Chip)current.item()).ycorr - chip1.ycorr + chip1.xcorr) == ((Chip)current.item()).xcorr) {
+                    Chip newChip = new Chip(((Chip)current.item()).xcorr, ((Chip)current.item()).ycorr);
+                    newChip.whatColor = ((Chip)current.item()).whatColor; 
+                    newChip.isAvailable = false;
+                    connections.insertFront(newChip); 
+                    current = (DListNode)current.next(); 
+                } else if (((Chip)current.item()).ycorr - chip1.ycorr + ((Chip)current.item()).xcorr == chip1.xcorr) {
+                    Chip newChip = new Chip(((Chip)current.item()).xcorr, ((Chip)current.item()).ycorr);
+                    newChip.whatColor = ((Chip)current.item()).whatColor; 
+                    newChip.isAvailable = false;
+                    connections.insertFront(newChip); 
+                    current = (DListNode)current.next(); 
+                } else {
+                    current = (DListNode)current.next(); 
+                }
+	    } catch (InvalidNodeException e) { }
+	}
+	return connections; 
+    }
+
+    public int EvalFunc(int color) {
+        int result;
+        int opColor;
+        if (color == 0) {
+            opColor = 1;
+        } else {
+            opColor = 0;
+        }
+        //if opponent has a network, return the minimum possible score
+        //if I have a network, return the maximum possible score
+        if (this.findNetwork(opColor)) {
+            return -100;
+        } else if (this.findNetwork(color)) {
+            return 100;
+        }
+
+        int numOfPairs = 0;
+        int opNumOfPairs = 0;
+        DListNode curr;
+        DListNode opcurr;
+
+        if (color == 0) {
+            curr = (DListNode)blackChips.front();
+            opcurr = (DListNode)whiteChips.front();
+        } else {
+            curr = (DListNode)whiteChips.front();
+            opcurr = (DListNode)blackChips.front();
+        }
+
+        try {
+            while (curr.isValidNode()) {
+                Chip c = (Chip)curr.item();
+                    numOfPairs = numOfPairs + this.findPairs(c).length();
+                curr = (DListNode)curr.next();
+            }
+        } catch (InvalidNodeException e) { }
+
+        try {
+            while (opcurr.isValidNode()) {
+                Chip c = (Chip)curr.item();
+                    opNumOfPairs = opNumOfPairs + this.findPairs(c).length();
+                curr = (DListNode)curr.next();
+            }
+        } catch (InvalidNodeException e) { }
+
+        if (color == 0 && this.ifNotGoals(blackChips)) {
+            numOfPairs = numOfPairs / 2;
+        }
+        if (color == 1 && this.ifNotGoals(whiteChips)) {
+            numOfPairs = numOfPairs / 2;
+        }
+        if (opColor == 0 && this.ifNotGoals(blackChips)) {
+            opNumOfPairs = opNumOfPairs / 2;
+        }
+        if (opColor == 1 && this.ifNotGoals(whiteChips)) {
+            opNumOfPairs = opNumOfPairs / 2;
+        }
+
+        result = numOfPairs - opNumOfPairs;
+	return result;
+    }
+
+    protected boolean ifNotGoals(DList lst) {
+        DListNode curr = (DListNode)lst.front();
+        try {
+        while (curr.isValidNode()) {
+            Chip currChip = (Chip)curr.item();
+            if (currChip.xcorr == 0 || currChip.ycorr == 0 || currChip.xcorr == 7 || currChip.ycorr == 7) {
+                return false;
+            } else {
+                curr = (DListNode)curr.next();
+            }
+        }
+        } catch (InvalidNodeException e) { }
+        return true;
+    }
+
+    public DList findPairs(Chip c) {
+	DList result = new DList();
+	int x = c.xcorr;
+	int y = c.ycorr;
+	int color = c.whatColor;
+	DListNode curr;
+	c.visited = true;
+	try {
+            if (color == 0) {
+                curr = (DListNode)blackChips.front();
+            } else {
+                curr = (DListNode)whiteChips.front();
+            }
+            while (curr.isValidNode()) {
+                //isConnected to be implemented
+                Chip currChip = (Chip)curr.item();
+                if (this.isConnected(c, currChip)) {
+                    Chip addChip = new Chip(currChip.xcorr, currChip.ycorr);
+                    addChip.isAvailable = false;
+                    addChip.whatColor = currChip.whatColor;
+                    result.insertBack(addChip);
+                }
+                curr = (DListNode)curr.next();
+            }
+	} catch (InvalidNodeException e) { }
+	return result;
+    }
+
+    //eliminate itself,has something in between
+    public boolean isConnected(Chip c1, Chip c2) {
+	int x1 = c1.xcorr;
+	int y1 = c1.ycorr;
+	int x2 = c2.xcorr;
+	int y2 = c2.ycorr;
+	if (x1 == x2 && y1 == y2) return false;
+	//c1 is above
+	if (x1 == x2 && y1 < y2) {
+	    for (int j = y1+1; j < y2; j++) {
+		if (chips[x1][j].isAvailable == false) return false;
+	    }
+            return true;
+	}
+	//c1 is below
+	if (x1 == x2 && y1 > y2) {
+	    for (int j = y2+1; j < y1; j++) {
+		if (chips[x1][j].isAvailable == false) return false;
+	    }
+            return true;
+	}
+	//c1 is to the left
+	if (y1 == y2 && x1 < x2) {
+	    for (int i = x1+1; i < x2; i++) {
+		if (chips[i][y1].isAvailable == false) return false;
+	    }
+            return true;
+	}
+	//c1 is to the right
+	if (y1 == y2 && x1 > x2) {
+	    for (int i = x2+1; i < x1; i++) {
+		if (chips[i][y1].isAvailable == false) return false;
+	    }
+            return true;
+	}
+	//c1 is upperleft
+	if (y2 - y1 + x2 == x1 && x1 < x2) {
+	    for (int i = x1+1; i < x2; i++) {
+		//(i,j) (x1,y1) slope = -1
+		//j-y1=x1-i
+		int j = x1+y1-i;
+		if (chips[i][j].isAvailable == false) return false;
+	    }
+            return true;
+	}
+	//c1 is lowerright
+	if (y2 - y1 + x2 == x1 && x1 > x2) {
+	    for (int i = x2+1; i < x1; i++) {
+		int j = x1+y1-i;
+		if (chips[i][j].isAvailable == false) return false;
+	    }
+            return true;
+	}
+	//c1 is lowerleft
+	if (y2-y1+x1 == x2 && x1 < x2) {
+	    for (int i = x1+1; i < x2; i++) {
+		//(i,j)(x1,y1) slope = 1
+		//j-y1=i-x1
+		int j = i-x1+y1;
+		if (chips[i][j].isAvailable == false) return false;
+	    }
+            return true;
+	}
+	//c1 is upperright
+	if (y2-y1+x1 == x2 && x1 > x2) {
+	    for (int i = x2+1; i < x1; i++) {
+		int j = i-x1+y1;
+		if (chips[i][j].isAvailable == false) return false;
+	    }
+            return true;
+	}
+	return false;
+    }
+
+    /*
+      public DList findPairs(Chip chip) {
+      int x = chip.xcorr;
+      int y = chip.ycorr;
+      DList result = new DList();
+      chip.visited = true;
+      //find pairs upward
+      for (int j = 0; j <= y-1; j++) {
+      if (chips[x][j].whatColor == chips[x][y].whatColor) {
+      Chip up  = new Chip(x, j);
+      result.insertBack(up);
+      break;
+      }
+      }
+      //find pairs downward
+      for (int j = y+1; j <= 7; j++) {
+      if (chips[x][j].whatColor == chips[x][y].whatColor) {
+      Chip down = new Chip (x, j);
+      result.insertBack(down);
+      break;
+      }
+      }
+      //find pairs left
+      for (int i = x-1; i >= 0; i--) {
+      if (chips[i][y].whatColor == chips[x][y].whatColor) {
+      Chip left = new Chip(i,y);
+      result.insertBack(left);
+      break;
+      }
+      }
+      //find pairs right
+      for (int i = x+1; i <= 7; i++) {
+      if (chips[i][y].whatColor == chips[x][y].whatColor) {
+      Chip right = new Chip(i,y);
+      result.insertBack(right);
+      break;
+      }
+      }
+      //find pairs upperleft
+      for (int i = x-1; i >= 0; i--) {
+      for (int j = y-1; j >= 0; j--) {
+      if (x + y - j == i) {
+      if (chips[i][j].whatColor == chips[x][y].whatColor) {
+      Chip upperLeft = new Chip(i,j);
+      result.insertBack(upperLeft);
+      break;
+      }
+      }
+      }
+      }
+      //find pairs lowerright
+      for (int i = x+1; i <= 7; i++) {
+      for (int j = y+1; j <= 7; j++) {
+      if (i + j - y == x) {
+      if (chips[i][j].whatColor == chips[x][y].whatColor) {
+      Chip lowerRight = new Chip(i,j);
+      result.insertBack(lowerRight);
+      break;
+      }
+      }
+      }
+      }
+      //find pairs lowerleft
+      for (int i = x-1; i >= 0; i--) {
+      for (int j = y+1; j <= 7; j++) {
+      if (i + y - j == x) {
+      if (chips[i][j].whatColor == chips[x][y].whatColor) {
+      Chip lowerLeft = new Chip(i,j);
+      result.insertBack(lowerLeft);
+      break;
+      }
+      }
+      }
+      }
+      //find pairs upperright
+      for (int i = x+1; i <= 7; i++) {
+      for (int j = y-1; j >= 0; j--) {
+      if (i + y -j == x) {
+      if (chips[i][j].whatColor == chips[x][y].whatColor) {
+      Chip upperRight = new Chip(i,j);
+      result.insertBack(upperRight);
+      break;
+      }
+      }
+      }
+      }
+      return result;
+      }
+    */
+
+    //helper function takes in three chips and check if they changed directions
+    private boolean direction(DList lst) {
+        try {
+            DListNode n1 = (DListNode)lst.front();
+            DListNode n2 = (DListNode)lst.front().next();
+            DListNode n3 = (DListNode)lst.front().next().next();
+            while (n1.isValidNode() && n2.isValidNode() && n3.isValidNode()) {
+                Chip c1 = (Chip)n1.item();
+                Chip c2 = (Chip)n2.item();
+                Chip c3 = (Chip)n3.item();
+                int x1 = c1.xcorr;
+                int x2 = c2.xcorr;
+                int x3 = c3.xcorr;
+                int y1 = c1.ycorr;
+                int y2 = c2.ycorr;
+                int y3 = c3.ycorr;
+                if (x1 == x2 && x1 == x3) return false;
+                else if (y1 == y2 && y1 == y3) return false;
+                else if (x3 * y2 - x2 * y2 - x3 * y1 + x2 * y1 - x2 * y3 + x2 * y2 + x1 * y3 == x1 * y2) return false;
+                else {
+                    n1 = (DListNode)n1.next();
+                    n2 = (DListNode)n2.next();
+                    n3 = (DListNode)n3.next();
+                }
+            }
+        } catch (InvalidNodeException e) { }
+        return true;
+    }
+
+    private DList trimPairs(DList lst) {
+        DListNode curr = (DListNode)lst.front();
+        try {
+            while (curr.isValidNode()) {
+                Chip c = (Chip)curr.item();
+                if (c.visited || c.xcorr == 0 || c.ycorr == 0) {
+                    curr = (DListNode)curr.next();
+                    ((DListNode)curr.prev()).remove();
+                } else {
+                    curr = (DListNode)curr.next();
+                }
+            }
+        } catch (InvalidNodeException e) { }
+        return lst;
+    }
+    
+    public boolean findNetwork(int color) {
+        DListNode curr;
+        try {
+            if (color == 0) {
+                curr = (DListNode)blackChips.front();
+            } else {
+                curr = (DListNode)whiteChips.front();
+            }
+
+            while (curr.isValidNode()) {
+                Chip currChip = (Chip)curr.item();
+                if (currChip.xcorr == 0 || currChip.ycorr == 0) {
+                    DList newLst = new DList();
+                    Chip c = new Chip(currChip.xcorr, currChip.ycorr);
+                    c.whatColor = currChip.whatColor;
+                    c.isAvailable = false;
+                    c.visited = currChip.visited;
+                    newLst.insertBack(c);
+                    //the current starting goal forms a valid network
+                    boolean a = this.formNetwork(newLst);
+                    if (a) {
+                        return true;
+                    }
+                }
+                curr = (DListNode)curr.next();
+            }
+        } catch (InvalidNodeException e) { }
+        return false;
+    }
+    
+    public boolean formNetwork(DList lst) {
+        boolean result = false;
+        try {
+            DListNode back = (DListNode)lst.back();
+            Chip backChip = (Chip)back.item();
+            // base case when a network has been formed
+            if (backChip.xcorr == 7 || backChip.ycorr == 7) {
+                if (lst.length() >= 6 && this.direction(lst)) {
+                    return true;
+                }
+            }
+
+            DList connections = this.findPairs(backChip);
+
+            DListNode currConnection = (DListNode)connections.front();
+            while (currConnection.isValidNode()) {
+                Chip currConnectChip = (Chip)currConnection.item();
+
+                if (currConnectChip.xcorr == 7 || currConnectChip.ycorr == 7) {
+                    if (lst.length() < 5) {
+                        currConnection = (DListNode)currConnection.next();
+                        currConnectChip = (Chip)currConnection.item();
+                    }
+                }
+
+                //isNotIn to be implemented
+                if (this.isNotIn(currConnectChip, lst)) {
+                    DList copy = new DList();
+                    DListNode copyNode = (DListNode)lst.front();
+                    while (copyNode.isValidNode()) {
+                        Chip copyChip = (Chip)copyNode.item();
+                        Chip newChip = new Chip(copyChip.xcorr, copyChip.ycorr);
+                        newChip.whatColor = copyChip.whatColor;
+                        newChip.isAvailable = false;
+                        copy.insertBack(newChip);
+                        copyNode = (DListNode)copyNode.next();
+                    }
+                    copy.insertBack(currConnectChip);
+                    result = this.formNetwork(copy);
+                }
+
+                currConnection = (DListNode)currConnection.next();
+            }
+        } catch (InvalidNodeException e) { }
+        return result;
+    }
+    
+
+    private boolean isNotIn(Chip c, DList lst) {
+        try {
+            DListNode curr = (DListNode)lst.front();
+            while (curr.isValidNode()) {
+                Chip currChip = (Chip)curr.item();
+                if (currChip.xcorr == c.xcorr && currChip.ycorr == c.ycorr) return false;
+                curr = (DListNode) curr.next();
+            }
+        } catch (InvalidNodeException e) { }
+        return true;
+    }
+
+    /*
+      public DList findNetwork(int color) {
+      DList network = new DList();
+      DListNode current;
+
+      //Find all goal chips for given color. 
+      if (color == 0) {
+      current = (DListNode)blackChips.front(); 
+      } else {
+      current = (DListNode)whiteChips.front(); 
+      }
+
+      DList goalChips = new DList(); 
+      while(current.isValidNode()) {
+      try {
+      if (((Chip)current.item()).xcorr == 0 || ((Chip)current.item()).ycorr == 0) {
+      Chip newChip = new Chip(((Chip)current.item()).xcorr, ((Chip)current.item()).ycorr); 
+      newChip.whatColor = ((Chip)current.item()).whatColor; 
+      newChip.isAvailable = false; 
+      goalChips.insertFront(newChip); 
+      } else {
+      current = (DListNode)current.next(); 
+      }
+      } catch (InvalidNodeException e) {
+      }
+      }
+
+      //Call depth-first seach on each goal chip if necessary 
+      DListNode curr = (DListNode)goalChips.front(); 
+      while(curr.isValidNode()) {
+      try {
+      DList networkTry = new DList();
+      Chip c = (Chip) curr.item(); 
+      networkTry.insertBack(c);
+      networkTry = dfSearch(networkTry); 
+      if (networkTry.isEmpty()) {
+      curr = (DListNode)curr.next(); 
+      } else {
+      network = networkTry; //depth-first search found a network 
+      }
+      } catch (InvalidNodeException e) {
+      }
+      }
+
+      return network; 
+
+      }
+
+      private DList dfSearch(DList networkHolder) {
+      //No network found 
+      if (networkHolder.isEmpty()) {
+      return networkHolder; 
+      }
+   
+      //Try to find a network
+      try {
+      DListNode current = (DListNode)networkHolder.back(); 
+      //Check if current is in end goal area; if satisfied return networkHolder
+      if (((Chip)current.item()).xcorr == 7 || ((Chip)current.item()).ycorr == 7) {
+      return networkHolder; 
+      }
+   
+      //Network not yet found
+      DList chipPairs = this.findPairs((Chip)current.item()); 
+      chipPairs = this.trimPairs(chipPairs); 
+      if (chipPairs.isEmpty()) {
+      //last chip in network search currently has no more connections 
+      current.remove(); 
+      networkHolder = this.dfSearch(networkHolder); 
+      ((Chip)current.item()).visited = false;
+      }
+
+      //last chip in network search does have connections 
+      DListNode pairPointer = (DListNode)chipPairs.front(); 
+      //loop through chipPairs until find one that is good to insert into networkHolder 
+      while (pairPointer.isValidNode()) {
+      if (((Chip)pairPointer.item()).xcorr == 7 || ((Chip)pairPointer.item()).ycorr == 7) {
+      //check if length of network has 6 or more chips
+      if (networkHolder.length() >= 5) {
+      //check if change directions
+      Chip test1 = (Chip)pairPointer.item();  
+      Chip test2 = (Chip)networkHolder.back().item(); 
+      Chip test3 = (Chip)networkHolder.back().prev().item();
+      DList xx = new DList();
+      xx.insertBack(test1);
+      xx.insertBack(test2);
+      xx.insertBack(test3);
+      boolean result = this.direction(xx); 
+      //both conditions satisfied, insert into networkHolder 
+      if (result) {
+      networkHolder.insertBack((Chip)pairPointer.item()); 
+      networkHolder = this.dfSearch(networkHolder); 
+      }
+      } else {
+      pairPointer = (DListNode)pairPointer.next();
+      }
+      } 
+
+      //call findPairs on pairPointer 
+      DList nextLevel = this.findPairs((Chip)pairPointer.item());
+      nextLevel = this.trimPairs(nextLevel); 
+      //add it if it has further connections  
+      if (!nextLevel.isEmpty()) {
+      if (networkHolder.length() >= 2) {
+      Chip test1 = (Chip)pairPointer.item(); 
+      Chip test2 = (Chip)networkHolder.back().item(); 
+      Chip test3 = (Chip)networkHolder.back().prev().item(); 
+      DList xx = new DList();
+      xx.insertBack(test1);
+      xx.insertBack(test2);
+      xx.insertBack(test3);
+      boolean result = this.direction(xx);
+      if (result) {
+      networkHolder.insertBack((Chip)pairPointer.item()); 
+      networkHolder = this.dfSearch(networkHolder); 
+      } else {
+      ((Chip)pairPointer.item()).visited = false; 
+      pairPointer = (DListNode)pairPointer.next(); 
+      }
+      } else {
+      networkHolder.insertBack((Chip)pairPointer.item()); 
+      networkHolder = this.dfSearch(networkHolder);
+      }
+      } else {
+      ((Chip)pairPointer.item()).visited = false; 
+      pairPointer = (DListNode)pairPointer.next();
+      }
+      }
+      } catch (InvalidNodeException e) { }
+     
+      return networkHolder;
+      }
+    */
+
+    public String toString() {
+	String s = "";
+	for (int j = 0; j < 8; j++) {
+	    for (int i = 0; i < 8; i++) {
+		s = s + chips[i][j].toString();
+	    }
+	    s = s + "\n";
+	}
+	return s;
+    }
+
+}
